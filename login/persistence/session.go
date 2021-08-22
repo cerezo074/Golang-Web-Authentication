@@ -1,30 +1,25 @@
 package persistence
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
 	"errors"
 	. "example/models"
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
-	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
 )
 
 type session map[string]string
-
-type jwtPayload struct {
-	jwt.StandardClaims
-	Id string
-}
 
 const (
 	privateKey = "Save this key in your cloud infrastructure instead of hardcoding it"
 )
 
 var (
-	uuids *session = &session{}
+	tokens *session = &session{}
 )
 
 func RegisterToken(user User) (string, error) {
@@ -34,21 +29,19 @@ func RegisterToken(user User) (string, error) {
 
 	oldToken := currentToken(user)
 	if oldToken != "" {
-		delete(*uuids, oldToken)
+		delete(*tokens, oldToken)
 	}
 
-	rawUuid, err := uuid.NewRandom()
+	h := hmac.New(sha256.New, []byte(privateKey))
+	uuid, err := uuid.NewRandom()
 	if err != nil {
 		return "", err
 	}
 
-	UUID := rawUuid.String()
-	token, err := createJWTToken(UUID)
-	if err != nil {
-		return "", err
-	}
+	h.Write([]byte(uuid.String()))
+	token := fmt.Sprintf("%x", h.Sum(nil))
+	(*tokens)[token] = user.Email
 
-	(*uuids)[UUID] = user.Email
 	return token, nil
 }
 
@@ -58,16 +51,11 @@ func DeleteToken(request *http.Request) error {
 		return err
 	}
 
-	uuid, err := getUUIDFromSession(token)
-	if err != nil {
-		return err
-	}
-
-	if (*uuids)[uuid] == "" {
+	if (*tokens)[token] == "" {
 		return errors.New("invalid user to delete session")
 	}
 
-	delete(*uuids, uuid)
+	delete(*tokens, token)
 
 	return nil
 }
@@ -78,12 +66,7 @@ func UserForSession(request *http.Request) (*User, error) {
 		return nil, err
 	}
 
-	uuid, err := getUUIDFromSession(token)
-	if err != nil {
-		return nil, err
-	}
-
-	email := (*uuids)[uuid]
+	email := (*tokens)[token]
 	return GetUser(email)
 }
 
@@ -100,53 +83,11 @@ func extractToken(request *http.Request) (string, error) {
 }
 
 func currentToken(user User) string {
-	for key, value := range *uuids {
+	for key, value := range *tokens {
 		if value == user.Email {
 			return key
 		}
 	}
 
 	return ""
-}
-
-func createJWTToken(id string) (string, error) {
-	payload := jwtPayload{
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(15 * time.Minute).Unix(),
-		},
-		Id: id,
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &payload)
-	ss, err := token.SignedString([]byte(privateKey))
-
-	if err != nil {
-		return "", fmt.Errorf("couldn't SignedString %w", err)
-	}
-
-	return ss, nil
-}
-
-func getUUIDFromSession(token string) (string, error) {
-	if token == "" {
-		return "", errors.New("token if empty")
-	}
-
-	afterVerificationToken, err := jwt.ParseWithClaims(token, &jwtPayload{}, func(beforeVerificationToken *jwt.Token) (interface{}, error) {
-		if beforeVerificationToken.Method.Alg() != jwt.SigningMethodHS256.Alg() {
-			return nil, fmt.Errorf("unexpected signing method: %v", beforeVerificationToken.Header["alg"])
-		}
-
-		return []byte(privateKey), nil
-	})
-
-	if err != nil {
-		return "", err
-	}
-
-	if claims, ok := afterVerificationToken.Claims.(*jwtPayload); ok && afterVerificationToken.Valid {
-		return claims.Id, nil
-	} else {
-		return "", errors.New("can't extract session ID from current token")
-	}
 }
