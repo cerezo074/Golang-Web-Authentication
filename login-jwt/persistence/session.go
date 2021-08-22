@@ -112,7 +112,7 @@ func currentToken(user User) string {
 func createJWTToken(id string) (string, error) {
 	payload := jwtPayload{
 		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(15 * time.Minute).Unix(),
+			ExpiresAt: time.Now().Add(2 * time.Minute).Unix(),
 		},
 		Id: id,
 	}
