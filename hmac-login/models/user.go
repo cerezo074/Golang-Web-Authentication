@@ -1,5 +1,9 @@
 package models
 
+import (
+	"fmt"
+)
+
 type User struct {
 	Username string
 	Email    string
@@ -12,8 +16,20 @@ func (element User) IsValidID() bool {
 		len(element.Email) > 0
 }
 
-func (element User) IsValid() bool {
-	return isValid(element.Email) && isValid(element.Password) && isValid(element.Username)
+func (element User) Validate() error {
+	if !isValid(element.Email) {
+		return fmt.Errorf("invalid email field, value: %v", element.Email)
+	}
+
+	if !isValid(element.Password) {
+		return fmt.Errorf("invalid password field, value: %v", element.Password)
+	}
+
+	if !isValid(element.Username) {
+		return fmt.Errorf("invalid username field, value: %v", element.Username)
+	}
+
+	return nil
 }
 
 func isValid(value string) bool {

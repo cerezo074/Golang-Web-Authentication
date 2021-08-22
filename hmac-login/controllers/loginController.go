@@ -6,6 +6,11 @@ import (
 )
 
 func HandleLogin(response http.ResponseWriter, request *http.Request) {
+	if request.Method != http.MethodPost {
+		sendErrorResponse(http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed, response)
+		return
+	}
+
 	user, _ := UserForSession(request)
 
 	if user != nil {
@@ -13,14 +18,14 @@ func HandleLogin(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	email := request.Form.Get("email")
+	email := request.FormValue("email")
 	user, err := GetUser(email)
 	if err != nil {
 		sendErrorResponse("User not found", http.StatusNotFound, response)
 		return
 	}
 
-	password := request.Form.Get("password")
+	password := request.FormValue("password")
 	if !IsPasswordValid(password, user.Email) {
 		sendErrorResponse("Invalid password", http.StatusNotFound, response)
 		return
@@ -37,6 +42,11 @@ func HandleLogin(response http.ResponseWriter, request *http.Request) {
 }
 
 func HandleLogout(response http.ResponseWriter, request *http.Request) {
+	if request.Method != http.MethodPost {
+		sendErrorResponse(http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed, response)
+		return
+	}
+
 	user, err := UserForSession(request)
 
 	if err != nil {
@@ -44,12 +54,12 @@ func HandleLogout(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	err = DeleteToken(*user)
+	err = DeleteToken(request)
 	if err != nil {
 		sendErrorResponse("Invalid session", http.StatusUnauthorized, response)
 		return
 	}
 
-	successfulJSON := JSON{"data": "BYE"}
+	successfulJSON := JSON{"data": "BYE " + user.Username}
 	sendSuccessfulResponse(successfulJSON, http.StatusOK, response)
 }

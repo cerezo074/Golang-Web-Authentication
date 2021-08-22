@@ -28,33 +28,44 @@ func RegisterToken(user User) (string, error) {
 	h := hmac.New(sha256.New, []byte(privateKey))
 	h.Write([]byte(user.Username))
 	token := fmt.Sprintf("%x", h.Sum(nil))
-	(*tokens)[user.Email] = token
+	(*tokens)[token] = user.Email
 
 	return token, nil
 }
 
-func DeleteToken(user User) error {
-	if !user.IsValidID() {
-		return fmt.Errorf("Invalid user to delete session, %v", user.Email)
+func DeleteToken(request *http.Request) error {
+	token, err := extractToken(request)
+	if err != nil {
+		return err
 	}
 
-	delete(*tokens, user.Email)
+	if (*tokens)[token] == "" {
+		return errors.New("invalid user to delete session")
+	}
+
+	delete(*tokens, token)
 
 	return nil
 }
 
 func UserForSession(request *http.Request) (*User, error) {
-	authHeader := request.Header.Get("Authorization")
-	return userForToken(authHeader)
-}
-
-func userForToken(token string) (*User, error) {
-	if strings.Contains(token, "Bearer") {
-		tokenWithoutPrefix := strings.ReplaceAll(token, "Bearer", "")
-		rawToken := strings.ReplaceAll(tokenWithoutPrefix, " ", "")
-		email := (*tokens)[rawToken]
-		return GetUser(email)
+	token, err := extractToken(request)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil, errors.New("Invalid token type")
+	email := (*tokens)[token]
+	return GetUser(email)
+}
+
+func extractToken(request *http.Request) (string, error) {
+	authHeader := request.Header.Get("Authorization")
+
+	if strings.Contains(authHeader, "Bearer") {
+		tokenWithoutPrefix := strings.ReplaceAll(authHeader, "Bearer", "")
+		rawToken := strings.ReplaceAll(tokenWithoutPrefix, " ", "")
+		return rawToken, nil
+	}
+
+	return "", nil
 }
