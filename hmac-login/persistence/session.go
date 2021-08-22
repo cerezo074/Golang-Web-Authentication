@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 type session map[string]string
@@ -22,11 +24,21 @@ var (
 
 func RegisterToken(user User) (string, error) {
 	if !user.IsValidID() {
-		return "", fmt.Errorf("Invalid user to create session, %v", user.Email)
+		return "", errors.New("invalid user to create session")
+	}
+
+	oldToken := currentToken(user)
+	if oldToken != "" {
+		delete(*tokens, oldToken)
 	}
 
 	h := hmac.New(sha256.New, []byte(privateKey))
-	h.Write([]byte(user.Username))
+	uuid, err := uuid.NewRandom()
+	if err != nil {
+		return "", err
+	}
+
+	h.Write([]byte(uuid.String()))
 	token := fmt.Sprintf("%x", h.Sum(nil))
 	(*tokens)[token] = user.Email
 
@@ -68,4 +80,14 @@ func extractToken(request *http.Request) (string, error) {
 	}
 
 	return "", nil
+}
+
+func currentToken(user User) string {
+	for key, value := range *tokens {
+		if value == user.Email {
+			return key
+		}
+	}
+
+	return ""
 }
