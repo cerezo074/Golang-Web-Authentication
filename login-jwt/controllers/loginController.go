@@ -47,19 +47,12 @@ func HandleLogout(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	user, err := UserForSession(request)
-
+	err := DeleteToken(request)
 	if err != nil {
-		sendErrorResponse("User not authenticated!", http.StatusUnauthorized, response)
+		sendErrorResponse(err.Error(), http.StatusUnauthorized, response)
 		return
 	}
 
-	err = DeleteToken(request)
-	if err != nil {
-		sendErrorResponse("Invalid session", http.StatusUnauthorized, response)
-		return
-	}
-
-	successfulJSON := JSON{"data": "BYE " + user.Username}
+	successfulJSON := JSON{"data": "BYE!!!"}
 	sendSuccessfulResponse(successfulJSON, http.StatusOK, response)
 }
