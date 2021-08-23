@@ -19,7 +19,7 @@ var (
 
 func Register(username string, email string, password string) error {
 	if users.contains(email) {
-		return fmt.Errorf("User with email %s exists", email)
+		return fmt.Errorf("user with email %s exists", email)
 	}
 
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -33,7 +33,7 @@ func Register(username string, email string, password string) error {
 
 func GetUser(email string) (*User, error) {
 	if !users.contains(email) {
-		return nil, fmt.Errorf("User with the following %s email doesn't exist", email)
+		return nil, fmt.Errorf("user with the following %s email doesn't exist", email)
 	}
 
 	selectedUser := (*users)[email]
